@@ -1,0 +1,122 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<MorpheusModel version="4">
+    <Description>
+        <Details>Demonstration of parameter recovery using FitMultiCell for a CPM model of cell motility.
+</Details>
+        <Title>Demo CellMotility</Title>
+    </Description>
+    <Space>
+        <Lattice class="hexagonal">
+            <Neighborhood>
+                <Order>2</Order>
+            </Neighborhood>
+            <Size value="200, 200, 0" symbol="size"/>
+        </Lattice>
+        <SpaceSymbol symbol="space"/>
+    </Space>
+    <Time>
+        <StartTime value="0"/>
+        <StopTime value="500"/>
+        <TimeSymbol symbol="time"/>
+        <!--    <Disabled>
+        <RandomSeed value="0"/>
+    </Disabled>
+-->
+    </Time>
+    <Global>
+        <Constant value="10" symbol="motion_strength"/>
+        <Constant value="0.1" symbol="noise_level"/>
+    </Global>
+    <CellTypes>
+        <CellType class="biological" name="cell">
+            <DirectedMotion direction="dir" strength="motion_strength"/>
+            <PropertyVector value="0.0, 0.0, 1.0" symbol="dir"/>
+            <!--    <Disabled>
+        <VectorEquation symbol-ref="dir">
+            <Expression>dir.phi + rand_norm(0, noise_level), 0, 1</Expression>
+        </VectorEquation>
+    </Disabled>
+-->
+            <VolumeConstraint strength="1" target="200"/>
+            <SurfaceConstraint strength="1" target="1" mode="aspherity"/>
+            <PropertyVector value="1.0, 0.0, 0.0" symbol="velocity"/>
+            <MotilityReporter time-step="1">
+                <Velocity symbol-ref="velocity"/>
+            </MotilityReporter>
+            <System solver="Euler [fixed, O(1)]" time-step="1.0">
+                <VectorRule notation="φ,θ,r" symbol-ref="dir">
+                    <Expression>dir.phi + rand_norm(0, noise_level), 0, 1</Expression>
+                </VectorRule>
+            </System>
+        </CellType>
+    </CellTypes>
+    <CPM>
+        <Interaction/>
+        <ShapeSurface scaling="norm">
+            <Neighborhood>
+                <Order>3</Order>
+            </Neighborhood>
+        </ShapeSurface>
+        <MonteCarloSampler stepper="edgelist">
+            <MCSDuration value="1"/>
+            <MetropolisKinetics temperature="1"/>
+            <Neighborhood>
+                <Order>1</Order>
+            </Neighborhood>
+        </MonteCarloSampler>
+    </CPM>
+    <CellPopulations>
+        <Population size="1" type="cell">
+            <InitRectangle number-of-cells="1" mode="regular">
+                <Dimensions size="1.0, 1.0, 1.0" origin="100.0, 100.0, 0.0"/>
+            </InitRectangle>
+        </Population>
+    </CellPopulations>
+    <Analysis>
+        <Logger name="MSD to file, no plot" time-step="100">
+            <Input>
+                <Symbol symbol-ref="cell.center.x"/>
+                <Symbol symbol-ref="cell.center.y"/>
+                <Symbol symbol-ref="velocity.x"/>
+                <Symbol symbol-ref="velocity.y"/>
+                <Symbol symbol-ref="velocity.abs"/>
+            </Input>
+            <Output>
+                <TextOutput/>
+            </Output>
+            <Plots>
+                <Plot>
+                    <Style style="lines" line-width="2.0"/>
+                    <Terminal terminal="png"/>
+                    <X-axis>
+                        <Symbol symbol-ref="cell.center.x"/>
+                    </X-axis>
+                    <Y-axis>
+                        <Symbol symbol-ref="cell.center.y"/>
+                    </Y-axis>
+                    <Color-bar palette="hot" maximum="6" minimum="0">
+                        <Symbol symbol-ref="time"/>
+                    </Color-bar>
+                </Plot>
+                <Plot>
+                    <Style style="points"/>
+                    <Terminal terminal="png"/>
+                    <X-axis>
+                        <Symbol symbol-ref="time"/>
+                    </X-axis>
+                    <Y-axis>
+                        <Symbol symbol-ref="dir.phi"/>
+                    </Y-axis>
+                </Plot>
+            </Plots>
+        </Logger>
+        <DependencyGraph include-tags="#untagged" format="png" reduced="false"/>
+        <Gnuplotter decorate="false" time-step="20">
+            <Plot>
+                <Cells/>
+                <CellArrows orientation="5*dir"/>
+            </Plot>
+            <Terminal name="png"/>
+        </Gnuplotter>
+    </Analysis>
+</MorpheusModel>

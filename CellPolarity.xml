@@ -1,0 +1,193 @@
+<MorpheusModel version="4">
+    <Description>
+        <Title>Cell Polarity</Title>
+        <Details>Chemotaxis of polarized cell&#xd;&#xd;&#xd;
+----------------------------&#xd;&#xd;&#xd;
+Show feedback between cell motility, cell polarization and external gradient.&#xd;&#xd;&#xd;
+ &#xd;&#xd;&#xd;
+Two simple polarization models can be enabled/disabled:&#xd;&#xd;&#xd;
+- Substrate-depletion model: no repolarization&#xd;&#xd;&#xd;
+- Wave-pinning model: repolarization&#xd;&#xd;&#xd;
+ &#xd;&#xd;&#xd;
+PDE Equation:&#xd;&#xd;&#xd;
+- Switch on/off and change gradients </Details>
+    </Description>
+    <Global>
+        <Constant value="1" symbol="n"/>
+        <Constant value="pi" symbol="period"/>
+        <Constant value="pi" symbol="osc"/>
+        <!--    <Disabled>
+        <Event trigger="on change" name="Gradient field right bound condition" time-step="1.0">
+            <Condition>center_cell1 > 0.9*lattice.x</Condition>
+            <Rule symbol-ref="c">
+                <Expression>-1*l.x/lattice.x+1+rand_uni(0,0.1)+sin(2*pi*t/osc)</Expression>
+            </Rule>
+        </Event>
+    </Disabled>
+-->
+        <Field value="((l.x &lt; lattice.x/3) * (l.x/lattice.x)) + ((l.x >= lattice.x/3) * 1/3)" name="Gradient Field" symbol="c">
+            <Diffusion rate="0"/>
+        </Field>
+        <Variable value="0.0" symbol="center_cell1"/>
+        <Mapper>
+            <Input value="cell.center.x * (cell.id==1)"/>
+            <Output mapping="maximum" symbol-ref="center_cell1"/>
+        </Mapper>
+        <!--    <Disabled>
+        <Event trigger="on change" name="Gradient field left bound condition" time-step="1.0">
+            <Condition>center_cell1 &lt; 0.1*lattice.x</Condition>
+            <Rule symbol-ref="c">
+                <Expression>1*l.x/lattice.x+1+rand_uni(0,0.1)+sin(2*pi*t/osc)</Expression>
+            </Rule>
+        </Event>
+    </Disabled>
+-->
+    </Global>
+    <Space>
+        <Lattice class="square">
+            <Size value="100, 50, 0" symbol="lattice"/>
+            <BoundaryConditions>
+                <Condition boundary="x" type="noflux"/>
+                <Condition boundary="y" type="periodic"/>
+            </BoundaryConditions>
+            <NodeLength value="1.0"/>
+            <Neighborhood>
+                <!--    <Disabled>
+        <Distance>2.0</Distance>
+    </Disabled>
+-->
+                <Order>2</Order>
+            </Neighborhood>
+        </Lattice>
+        <SpaceSymbol symbol="l"/>
+        <MembraneLattice>
+            <Resolution value="50" symbol="memsize"/>
+            <SpaceSymbol symbol="m"/>
+        </MembraneLattice>
+    </Space>
+    <Time>
+        <StartTime value="0"/>
+        <StopTime value="200"/>
+        <!--    <Disabled>
+        <SaveInterval value="0"/>
+    </Disabled>
+-->
+        <RandomSeed value="0"/>
+        <TimeSymbol symbol="t"/>
+    </Time>
+    <CellTypes>
+        <CellType class="medium" name="Medium">
+            <Property value="0" symbol="l_c"/>
+        </CellType>
+        <CellType class="biological" name="Cell">
+            <VolumeConstraint strength="0.1" target="500"/>
+            <SurfaceConstraint strength="0.5" target="1" mode="aspherity"/>
+            <MembraneProperty value="0.5" name="Activator concentration" symbol="c_a">
+                <Diffusion rate="0"/>
+            </MembraneProperty>
+            <MembraneProperty value="0.5" name="Inhibitor 1 concentration" symbol="c_i1">
+                <Diffusion rate="0" well-mixed="true"/>
+            </MembraneProperty>
+            <MembraneProperty value="0.5" name="Inhibitor 2 concentration" symbol="c_i2">
+                <Diffusion rate="0.00001"/>
+            </MembraneProperty>
+            <Property value="0.0" name="Average c_a across cell" symbol="mean_c_a"/>
+            <PropertyVector value="0.0, 0.0, 0.0" symbol="move_dir"/>
+            <PropertyVector value="0.0, 0.0, 0.0" symbol="cell_polarity_vector"/>
+            <Mapper>
+                <Input value="c_a"/>
+                <Output mapping="average" symbol-ref="mean_c_a"/>
+                <Polarity symbol-ref="cell_polarity_vector"/>
+            </Mapper>
+            <System solver="Runge-Kutta [fixed, O(4)]" name="Meinhardt model" time-step="1.0">
+                <Constant value="0.02" name="Decay rate of the activator a" symbol="r_a"/>
+                <Constant value="0.1" name="Rate of the activator autocatalysis" symbol="b_a"/>
+                <Constant value="0.005" name="Saturation of the activator autocatalysis" symbol="s_a"/>
+                <Constant value="0.03" name="Decay rate of inhibitor 1" symbol="r_i1"/>
+                <Constant value="0.005" name="Production rate of the inhibitor 2" symbol="b_i2"/>
+                <Constant value="0.013" name="Decay rate of inhibitor 2" symbol="r_i2"/>
+                <Constant value="0.2" name="Michaelis-Menten Constant" symbol="s_c"/>
+                <Constant value="0.02" name="External asymmetry" symbol="dy"/>
+                <Constant value="0.01" name="Random fluctuation" symbol="dr"/>
+                <DiffEqn symbol-ref="c_a" name="Change of activator concentration">
+                    <Expression>s*r_a*(c_a^2/c_i1+b_a)/(s_c+c_i2)/(1+s_a*c_a^2) - r_a*c_a</Expression>
+                </DiffEqn>
+                <DiffEqn symbol-ref="c_i1" name="Change of inhibitor 1 concentration">
+                    <Expression>r_i1*mean_c_a*-r_i1*c_i1</Expression>
+                </DiffEqn>
+                <DiffEqn symbol-ref="c_i2" name="Change of inhibitor 2 concentration">
+                    <Expression>b_i2*c_a-r_i2*c_i2</Expression>
+                </DiffEqn>
+                <Intermediate value="mean_c_a" symbol="mean_c_a"/>
+            </System>
+            <Mapper>
+                <Input value="c_a"/>
+                <Polarity symbol-ref="move_dir"/>
+            </Mapper>
+            <DirectedMotion direction="move_dir" strength="0.5"/>
+            <Mapper name="copy c(x,y,z) to s(x,y,z)">
+                <Input value="c"/>
+                <Output symbol-ref="s"/>
+            </Mapper>
+            <MembraneProperty value="0" name="signal" symbol="s">
+                <Diffusion rate="0"/>
+            </MembraneProperty>
+            <ConnectivityConstraint/>
+            <PropertyVector value="1.0, 0.0, 0.0" symbol="velocity"/>
+            <MotilityReporter time-step="1">
+                <Velocity symbol-ref="velocity"/>
+            </MotilityReporter>
+        </CellType>
+    </CellTypes>
+    <CPM>
+        <Interaction default="0.0">
+            <Contact value="-10" type1="Cell" type2="Medium"/>
+            <Contact value="-20" type1="Cell" type2="Cell"/>
+        </Interaction>
+        <MonteCarloSampler stepper="edgelist">
+            <MCSDuration value="1"/>
+            <Neighborhood>
+                <Order>2</Order>
+            </Neighborhood>
+            <MetropolisKinetics yield="0.05" temperature="1"/>
+        </MonteCarloSampler>
+        <ShapeSurface scaling="norm">
+            <Neighborhood>
+                <Order>6</Order>
+            </Neighborhood>
+        </ShapeSurface>
+    </CPM>
+    <CellPopulations>
+        <Population size="1" type="Cell">
+            <Cell id="1" name="1">
+                <Nodes>25 120 0</Nodes>
+            </Cell>
+        </Population>
+    </CellPopulations>
+    <Analysis>
+        <Gnuplotter time-step="10">
+            <Terminal name="png"/>
+            <Plot>
+                <Field symbol-ref="c"/>
+                <!--    <Disabled>
+        <Cells value="A"/>
+    </Disabled>
+-->
+                <Cells value="c_a"/>
+            </Plot>
+        </Gnuplotter>
+        <Logger time-step="10">
+            <Input>
+                <Symbol symbol-ref="cell.center.x"/>
+                <Symbol symbol-ref="cell.center.y"/>
+                <Symbol symbol-ref="mean_c_a"/>
+                <Symbol symbol-ref="velocity.x"/>
+                <Symbol symbol-ref="velocity.y"/>
+            </Input>
+            <Output>
+                <TextOutput/>
+            </Output>
+        </Logger>
+        <DependencyGraph include-tags="#untagged" format="svg" reduced="false"/>
+    </Analysis>
+</MorpheusModel>
